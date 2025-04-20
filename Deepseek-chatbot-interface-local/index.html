@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeepSeek Chat with BKT</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- Load Chart.js before our script -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -35,9 +36,14 @@
             <div id="chat-input-container">
                 <input type="text" id="chat-input" placeholder="Type a message...">
                 <button id="sendButton">Send</button>
+                <button id="start-voice-btn">
+                    <i class="fas fa-microphone"></i>
+                  </button>
+                  
             </div>
         </div>
     </div>
     <script src="script.js"></script>
+    <script src="speech.js"></script>
 </body>
 </html>
