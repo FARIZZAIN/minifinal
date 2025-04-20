@@ -3,18 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Static Chat Box</title>
+    <title>DeepSeek Chat with BKT</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Load Chart.js before our script -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="container">
-        <div id="chat-box"></div>
-        <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Type a message...">
-            <button id="sendButton">Send</button>
+    <div class="app-container">
+        <!-- New Knowledge Sidebar -->
+        <div class="knowledge-sidebar">
+            <div class="sidebar-header">
+                <h3>Knowledge Tracking</h3>
+            </div>
+            <div class="knowledge-content">
+                <div class="overall-progress">
+                    <h4>Overall Progress</h4>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="overall-progress-bar"></div>
+                        <span id="overall-progress-text">0%</span>
+                    </div>
+                </div>
+                <div class="skill-domains" id="skill-domains">
+                    <!-- Skill domains will be added dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Chat Area -->
+        <div class="container">
+            <div id="chat-box"></div>
+            <div id="chat-input-container">
+                <input type="text" id="chat-input" placeholder="Type a message...">
+                <button id="sendButton">Send</button>
+            </div>
         </div>
     </div>
     <script src="script.js"></script>
 </body>
 </html>
-
