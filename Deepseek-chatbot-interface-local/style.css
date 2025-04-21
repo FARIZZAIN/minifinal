@@ -644,3 +644,26 @@ code {
   outline: none;
 }
 
+#toggle-tts-btn {
+  background-color: black;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-left: 5px;
+}
+
+#toggle-tts-btn:hover {
+  background-color: #0b7dda;
+}
+
+#toggle-tts-btn.active {
+  background-color: black !important;
+}
+
+#toggle-tts-btn.muted {
+  background-color: var(--primary-color) !important;
+}
