@@ -103,6 +103,40 @@ def chat():
         app.logger.error(f"Error processing message: {e}")
         return jsonify({"error": str(e)}), 500
 
+def categorize_python_domain(text):
+    # Define Python domains and their related keywords
+    python_domains = {
+        "variables": ["variable", "assign", "declaration", "define"],
+        "datatypes": ["datatype", "string", "int", "float", "boolean", "list", "dict", "tuple", "set", "type"],
+        "operators": ["operator", "arithmetic", "comparison", "+", "-", "*", "/", "==", "!=", "<=", ">="],
+        "conditionals": ["if", "else", "elif", "condition", "ternary", "conditional"],
+        "loops": ["loop", "for", "while", "iterate", "iteration", "break", "continue"],
+        "functions": ["function", "def", "return", "argument", "parameter", "lambda"],
+        "classes": ["class", "object", "instance", "method", "attribute", "property", "init", "constructor", "oop"],
+        "inheritance": ["inheritance", "inherit", "subclass", "superclass", "parent class", "child class", "override"],
+        "exceptions": ["exception", "try", "except", "finally", "raise", "error", "handling", "catch"],
+        "modules": ["module", "import", "package", "library", "from"],
+        "file_io": ["file", "open", "read", "write", "close", "with", "io", "input", "output"],
+        "comprehensions": ["comprehension", "list comprehension", "dict comprehension", "generator expression"],
+        "generators": ["generator", "yield", "iterator", "iterable", "next"],
+        "decorators": ["decorator", "@", "wrapper", "meta"],
+        "regex": ["regex", "regular expression", "pattern", "match", "search", "findall", "re"],
+        "advanced_concepts": ["closure", "recursion", "memoization", "algorithm", "efficiency"]
+    }
+    
+    # Convert text to lowercase for case-insensitive matching
+    text_lower = text.lower()
+    
+    # Score each domain based on keyword matches
+    domain_scores = {}
+    for domain, keywords in python_domains.items():
+        domain_scores[domain] = sum(1 for keyword in keywords if keyword.lower() in text_lower)
+    
+    # Find domain with highest score
+    best_domain = max(domain_scores.items(), key=lambda x: x[1], default=("general", 0))
+    
+    return best_domain[0] if best_domain[1] > 0 else "general"
+
 def ensure_proper_code_blocks(text):
     """Ensure all code blocks are properly formatted with triple backticks"""
     # Pattern to detect unformatted code blocks (indented code)
@@ -155,9 +189,16 @@ def parse_mcq_questions(raw_text):
             
         if line.startswith(('Q:', 'Question:')):
             if current_question and current_question.get('options'):
+                # Add topic based on proper categorization
+                if 'topic' not in current_question:
+                    current_question['topic'] = categorize_python_domain(current_question['question'])
                 questions.append(current_question)
+            
             current_question = {'options': {}}
-            current_question['question'] = line.split(':', 1)[1].strip()
+            question_text = line.split(':', 1)[1].strip()
+            current_question['question'] = question_text
+            # Set the topic based on the question content
+            current_question['topic'] = categorize_python_domain(question_text)
             
         elif line.startswith(('A:', 'B:', 'C:', 'D:')):
             option = line[0]
@@ -174,9 +215,10 @@ def parse_mcq_questions(raw_text):
             current_question['correct'] = 'A'
         if 'hint' not in current_question:
             current_question['hint'] = "Review the main concepts"
+        if 'topic' not in current_question:
+            current_question['topic'] = categorize_python_domain(current_question['question'])
         questions.append(current_question)
     
     return questions[:2]  # Return max 2 questions
-
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')

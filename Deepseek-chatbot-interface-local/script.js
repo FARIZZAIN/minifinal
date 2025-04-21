@@ -438,6 +438,12 @@ const BKT_PARAMS = {
   slip: 0.1         // P(S) - Slip probability
 };
 
+const PYTHON_SYLLABUS = [
+  "variables", "datatypes", "operators", "conditionals", "loops", 
+  "functions", "classes", "inheritance", "exceptions", "modules", 
+  "file_io", "comprehensions", "generators", "decorators", "regex", 
+  "advanced_concepts"
+];
 // Knowledge tracking data
 const knowledgeData = {
   domains: {},       // Store knowledge level for different domains
@@ -452,30 +458,91 @@ const chatHistory = {
   pastChats: []
 };
 
-// Extract topic from question or response
+// Replace the current extractTopicFromText function with this improved version
 function extractTopicFromText(text) {
-  const commonWords = ["how", "what", "why", "is", "are", "the", "a", "an", "in", "on", "of", "to", "for"];
-  const words = text.split(/\s+/).slice(0, 10);
+  // Define major Python domains
+  const pythonDomains = {
+    // Core concepts
+    "variables": ["variable", "assign", "declaration", "define"],
+    "datatypes": ["datatype", "string", "int", "float", "boolean", "list", "dict", "tuple", "set", "type"],
+    "operators": ["operator", "arithmetic", "comparison", "+", "-", "*", "/", "==", "!=", "<=", ">="],
+    "conditionals": ["if", "else", "elif", "condition", "ternary", "conditional"],
+    "loops": ["loop", "for", "while", "iterate", "iteration", "break", "continue"],
+    "functions": ["function", "def", "return", "argument", "parameter", "lambda"],
+    "classes": ["class", "object", "instance", "method", "attribute", "property", "init", "constructor", "oop"],
+    "inheritance": ["inheritance", "inherit", "subclass", "superclass", "parent class", "child class", "override"],
+    "exceptions": ["exception", "try", "except", "finally", "raise", "error", "handling", "catch"],
+    "modules": ["module", "import", "package", "library", "from"],
+    "file_io": ["file", "open", "read", "write", "close", "with", "io", "input", "output"],
+    "comprehensions": ["comprehension", "list comprehension", "dict comprehension", "generator expression"],
+    "generators": ["generator", "yield", "iterator", "iterable", "next"],
+    "decorators": ["decorator", "@", "wrapper", "meta"],
+    "regex": ["regex", "regular expression", "pattern", "match", "search", "findall", "re"],
+    "advanced_concepts": ["closure", "recursion", "memoization", "algorithm", "efficiency"]
+  };
   
-  for (const word of words) {
-    const cleanWord = word.toLowerCase().replace(/[^\w]/g, '');
-    if (cleanWord.length > 3 && !commonWords.includes(cleanWord)) {
-      return cleanWord;
+  // Convert text to lowercase for case-insensitive matching
+  const lowercaseText = text.toLowerCase();
+  
+  // Score each domain based on keyword matches
+  const domainScores = {};
+  
+  for (const [domain, keywords] of Object.entries(pythonDomains)) {
+    domainScores[domain] = 0;
+    for (const keyword of keywords) {
+      if (lowercaseText.includes(keyword.toLowerCase())) {
+        domainScores[domain] += 1;
+      }
     }
   }
   
-  return "general";
+  // Find domain with highest score
+  let bestDomain = "general";
+  let highestScore = 0;
+  
+  for (const [domain, score] of Object.entries(domainScores)) {
+    if (score > highestScore) {
+      highestScore = score;
+      bestDomain = domain;
+    }
+  }
+  
+  return highestScore > 0 ? bestDomain : "general";
 }
 
 // Update the knowledge sidebar with current mastery data
 function updateKnowledgeSidebar() {
-  const overallPercentage = knowledgeData.totalQuestions > 0 
-    ? Math.round((knowledgeData.answeredCorrectly / knowledgeData.totalQuestions) * 100) 
-    : 0;
+  // Calculate progress as percentage of mastered topics out of complete syllabus
+  let masteredTopics = 0;
+  const masteryThreshold = 0.8; // 80% mastery is considered "Advanced"
+  
+  // Count how many syllabus topics have been mastered
+  PYTHON_SYLLABUS.forEach(topic => {
+    if (knowledgeData.domains[topic] && knowledgeData.domains[topic].mastery >= masteryThreshold) {
+      masteredTopics++;
+    }
+  });
+  
+  // Overall progress now represents syllabus completion
+  const overallPercentage = Math.round((masteredTopics / PYTHON_SYLLABUS.length) * 100);
   
   overallProgressBar.style.width = `${overallPercentage}%`;
   overallProgressText.textContent = `${overallPercentage}%`;
   
+  // Show how many topics have been mastered
+  const progressSubtext = document.createElement('div');
+  progressSubtext.className = 'progress-subtext';
+  progressSubtext.textContent = `${masteredTopics}/${PYTHON_SYLLABUS.length} topics mastered`;
+  
+  // Replace existing subtext if present, otherwise add new
+  const existingSubtext = document.querySelector('.progress-subtext');
+  if (existingSubtext) {
+    existingSubtext.replaceWith(progressSubtext);
+  } else {
+    overallProgressText.parentNode.appendChild(progressSubtext);
+  }
+  
+  // The rest of the function remains the same for displaying domain stats
   skillDomainsContainer.innerHTML = '';
   
   const sortedDomains = Object.entries(knowledgeData.domains)
@@ -514,6 +581,7 @@ function updateKnowledgeSidebar() {
   }
 }
 
+
 // Initialize a domain if it doesn't exist
 function initializeDomain(domain) {
   if (!knowledgeData.domains[domain]) {
@@ -537,22 +605,24 @@ function updateMastery(domain, isCorrect) {
   
   let mastery = domainData.mastery;
   
+  // Standard BKT update - update for both correct AND incorrect answers
   if (isCorrect) {
+    // P(L|C) - Probability of knowing skill given correct response
     mastery = (mastery * (1 - BKT_PARAMS.slip)) / 
               (mastery * (1 - BKT_PARAMS.slip) + (1 - mastery) * BKT_PARAMS.guess);
   } else {
+    // P(L|I) - Probability of knowing skill given incorrect response
     mastery = (mastery * BKT_PARAMS.slip) / 
               (mastery * BKT_PARAMS.slip + (1 - mastery) * (1 - BKT_PARAMS.guess));
   }
   
+  // Apply learning rate
   mastery = mastery + (1 - mastery) * BKT_PARAMS.learn;
   
+  // Update domain mastery
   domainData.mastery = mastery;
   knowledgeData.totalQuestions++;
   if (isCorrect) knowledgeData.answeredCorrectly++;
-  
-  const domains = Object.values(knowledgeData.domains);
-  knowledgeData.overallMastery = domains.reduce((sum, domain) => sum + domain.mastery, 0) / domains.length;
   
   updateKnowledgeSidebar();
   
@@ -590,23 +660,45 @@ function addMessage(message, isUser) {
 }
 
 function formatBotMessage(element, text) {
-  let formattedText = text;
+  // First process code blocks with triple backticks
   const codeBlockRegex = /```([\s\S]*?)```/g;
   const codeSegments = [];
   let match;
   let lastIndex = 0;
   let processedText = '';
   
+  // Extract code blocks and replace with placeholders
   while ((match = codeBlockRegex.exec(text)) !== null) {
+    // Add text before code block
     processedText += text.substring(lastIndex, match.index);
+    
+    // Create placeholder for code block
     const placeholder = `__CODE_BLOCK_${codeSegments.length}__`;
-    codeSegments.push(match[1].trim());
+    
+    // Extract language info if available (e.g., ```python or ```javascript)
+    let codeContent = match[1].trim();
+    let language = '';
+    
+    // Check if first line contains a language specification
+    const firstLineMatch = codeContent.match(/^([a-zA-Z0-9_+-]+)\s*\n/);
+    if (firstLineMatch) {
+      language = firstLineMatch[1].toLowerCase();
+      codeContent = codeContent.substring(firstLineMatch[0].length);
+    }
+    
+    codeSegments.push({
+      code: codeContent,
+      lang: language
+    });
+    
     processedText += placeholder;
     lastIndex = match.index + match[0].length;
   }
   
+  // Add remaining text after last code block
   processedText += text.substring(lastIndex);
   
+  // Process inline code with single backticks
   const inlineCodeRegex = /`([^`]+)`/g;
   let inlineMatch;
   lastIndex = 0;
@@ -618,17 +710,23 @@ function formatBotMessage(element, text) {
     lastIndex = inlineMatch.index + inlineMatch[0].length;
   }
   
+  // Add remaining text
   finalText += processedText.substring(lastIndex);
   
-  codeSegments.forEach((code, index) => {
+  // Replace code block placeholders with actual pre elements
+  codeSegments.forEach((codeObj, index) => {
     const placeholder = `__CODE_BLOCK_${index}__`;
-    finalText = finalText.replace(placeholder, `<pre>${code}</pre>`);
+    // If language is specified, add it as a class
+    const langClass = codeObj.lang ? ` class="language-${codeObj.lang}"` : '';
+    finalText = finalText.replace(placeholder, `<pre${langClass}>${codeObj.code}</pre>`);
   });
   
+  // Set the HTML content
   element.innerHTML = finalText;
+  
+  // Start the typewriter effect
   typewriterEffect(element, element.innerHTML);
 }
-
 function typewriterEffect(element, html, speed = 10) {
   const originalHTML = html;
   element.innerHTML = "";
@@ -698,13 +796,31 @@ function addQuizQuestion(question) {
     optionButton.dataset.option = key;
     
     optionButton.addEventListener("click", function() {
-      if (this.closest('.quiz-container').querySelector('.quiz-feedback')) {
-        return;
+      // Only prevent multiple answers if this question is already answered correctly
+      const feedbackElement = this.closest('.quiz-container').querySelector('.quiz-feedback');
+      if (feedbackElement && feedbackElement.classList.contains('correct')) {
+        return; // Don't allow more attempts if already correct
       }
       
+      // Remove previous feedback if it exists (for retries)
+      if (feedbackElement) {
+        feedbackElement.remove();
+      }
+      
+      // Remove previous skill level indicator if it exists
+      let skillLevelContainer = this.closest('.quiz-container').querySelector('.skill-level-container');
+      if (skillLevelContainer) {
+        skillLevelContainer.remove();
+      }
+      
+      // Check if answer is correct
       const isCorrect = key === question.correct;
+      
+      // FIXED: Always update the BKT model for both correct and incorrect answers
+      // This properly implements the BKT algorithm which should update on all attempts
       const masteryResult = updateMastery(topic, isCorrect);
       
+      // Show feedback
       const feedback = document.createElement("div");
       feedback.classList.add("quiz-feedback");
       
@@ -712,13 +828,15 @@ function addQuizQuestion(question) {
         feedback.textContent = "Correct! Well done! 🎉";
         feedback.classList.add("correct");
       } else {
-        feedback.textContent = `Incorrect. ${question.hint}`;
+        feedback.textContent = `Incorrect. ${question.hint} Try again!`;
         feedback.classList.add("incorrect");
       }
       
       questionContainer.appendChild(feedback);
       
-      const skillLevelContainer = document.createElement("div");
+      // Add skill level indicator regardless of correct/incorrect
+      // This shows the current estimated mastery after this attempt
+      skillLevelContainer = document.createElement("div");
       skillLevelContainer.classList.add("skill-level-container");
       
       const levelClass = masteryResult.level.toLowerCase();
@@ -729,6 +847,7 @@ function addQuizQuestion(question) {
       `;
       
       questionContainer.appendChild(skillLevelContainer);
+      
       scrollToBottom();
     });
     
