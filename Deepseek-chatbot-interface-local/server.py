@@ -176,8 +176,10 @@ def generate_fallback_mcq(response_message):
         app.logger.error(f"Error in fallback MCQ: {e}")
         return []
 
+# In server.py, modify the parse_mcq_questions function to better categorize topics
+
 def parse_mcq_questions(raw_text):
-    """Parse raw text into structured MCQ questions"""
+    """Parse raw text into structured MCQ questions with improved topic classification"""
     questions = []
     current_question = None
     lines = raw_text.replace('\r\n', '\n').split('\n')
@@ -197,8 +199,10 @@ def parse_mcq_questions(raw_text):
             current_question = {'options': {}}
             question_text = line.split(':', 1)[1].strip()
             current_question['question'] = question_text
-            # Set the topic based on the question content
-            current_question['topic'] = categorize_python_domain(question_text)
+            
+            # Make sure we match one of the syllabus topics for better progress tracking
+            topic = categorize_python_domain(question_text)
+            current_question['topic'] = topic
             
         elif line.startswith(('A:', 'B:', 'C:', 'D:')):
             option = line[0]
@@ -219,6 +223,30 @@ def parse_mcq_questions(raw_text):
             current_question['topic'] = categorize_python_domain(current_question['question'])
         questions.append(current_question)
     
-    return questions[:2]  # Return max 2 questions
+    # Make sure topics in questions match syllabus topics for progress tracking
+    python_syllabus = [
+        "variables", "datatypes", "operators", "conditionals", "loops", 
+        "functions", "classes", "inheritance", "exceptions", "modules", 
+        "file_io", "comprehensions", "generators", "decorators", "regex", 
+        "advanced_concepts"
+    ]
+    
+    for q in questions:
+        if q['topic'] not in python_syllabus:
+            # Find closest match in syllabus
+            best_match = "general"
+            max_score = 0
+            
+            for syllabus_topic in python_syllabus:
+                # Simple scoring based on word matches
+                score = sum(1 for word in q['question'].lower().split() 
+                           if word in syllabus_topic or syllabus_topic in word)
+                if score > max_score:
+                    max_score = score
+                    best_match = syllabus_topic
+            
+            q['topic'] = best_match
+    
+    return questions[:2]  # Return max 2 questions  
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')

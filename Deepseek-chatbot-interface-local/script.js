@@ -512,37 +512,39 @@ function extractTopicFromText(text) {
 
 // Update the knowledge sidebar with current mastery data
 function updateKnowledgeSidebar() {
-  // Calculate progress as percentage of mastered topics out of complete syllabus
-  let masteredTopics = 0;
-  const masteryThreshold = 0.8; // 80% mastery is considered "Advanced"
+  // Calculate progress based on partial mastery across all topics
+  let totalMastery = 0;
   
-  // Count how many syllabus topics have been mastered
+  // Count total mastery across all syllabus topics
   PYTHON_SYLLABUS.forEach(topic => {
-    if (knowledgeData.domains[topic] && knowledgeData.domains[topic].mastery >= masteryThreshold) {
-      masteredTopics++;
+    if (knowledgeData.domains[topic]) {
+      totalMastery += knowledgeData.domains[topic].mastery;
     }
   });
   
-  // Overall progress now represents syllabus completion
-  const overallPercentage = Math.round((masteredTopics / PYTHON_SYLLABUS.length) * 100);
+  // Calculate average mastery as percentage (max possible is PYTHON_SYLLABUS.length * 1.0)
+  const overallPercentage = Math.round((totalMastery / PYTHON_SYLLABUS.length) * 100);
   
   overallProgressBar.style.width = `${overallPercentage}%`;
   overallProgressText.textContent = `${overallPercentage}%`;
   
-  // Show how many topics have been mastered
+  // Show how many topics have been touched
+  const topicsStarted = Object.keys(knowledgeData.domains).filter(domain => 
+    PYTHON_SYLLABUS.includes(domain)).length;
+  
   const progressSubtext = document.createElement('div');
   progressSubtext.className = 'progress-subtext';
-  progressSubtext.textContent = `${masteredTopics}/${PYTHON_SYLLABUS.length} topics mastered`;
+  progressSubtext.textContent = `${topicsStarted}/${PYTHON_SYLLABUS.length} topics started`;
   
   // Replace existing subtext if present, otherwise add new
   const existingSubtext = document.querySelector('.progress-subtext');
   if (existingSubtext) {
     existingSubtext.replaceWith(progressSubtext);
-  } else {
+  } else if (overallProgressText.parentNode) {
     overallProgressText.parentNode.appendChild(progressSubtext);
   }
   
-  // The rest of the function remains the same for displaying domain stats
+  // Clear and rebuild domain items
   skillDomainsContainer.innerHTML = '';
   
   const sortedDomains = Object.entries(knowledgeData.domains)
@@ -775,9 +777,14 @@ function addQuizQuestion(question) {
   const questionContainer = document.createElement("div");
   questionContainer.classList.add("quiz-container");
   
+  // Create question text element with formatting support
   const questionText = document.createElement("div");
   questionText.classList.add("quiz-question");
-  questionText.textContent = question.question;
+  
+  // Instead of just setting textContent, format the question text
+  // to handle code blocks and inline code
+  formatQuizContent(questionText, question.question);
+  
   questionContainer.appendChild(questionText);
   
   const optionsContainer = document.createElement("div");
@@ -792,9 +799,15 @@ function addQuizQuestion(question) {
   for (const [key, value] of Object.entries(question.options)) {
     const optionButton = document.createElement("button");
     optionButton.classList.add("quiz-option");
-    optionButton.textContent = `${key}: ${value}`;
+    
+    // Create a container for option text to support formatting
+    const optionTextContainer = document.createElement("div");
+    formatQuizContent(optionTextContainer, `${key}: ${value}`);
+    
+    optionButton.appendChild(optionTextContainer);
     optionButton.dataset.option = key;
     
+    // Rest of the event listener code remains the same
     optionButton.addEventListener("click", function() {
       // Only prevent multiple answers if this question is already answered correctly
       const feedbackElement = this.closest('.quiz-container').querySelector('.quiz-feedback');
@@ -816,8 +829,7 @@ function addQuizQuestion(question) {
       // Check if answer is correct
       const isCorrect = key === question.correct;
       
-      // FIXED: Always update the BKT model for both correct and incorrect answers
-      // This properly implements the BKT algorithm which should update on all attempts
+      // Update the BKT model
       const masteryResult = updateMastery(topic, isCorrect);
       
       // Show feedback
@@ -834,8 +846,7 @@ function addQuizQuestion(question) {
       
       questionContainer.appendChild(feedback);
       
-      // Add skill level indicator regardless of correct/incorrect
-      // This shows the current estimated mastery after this attempt
+      // Add skill level indicator
       skillLevelContainer = document.createElement("div");
       skillLevelContainer.classList.add("skill-level-container");
       
@@ -859,6 +870,72 @@ function addQuizQuestion(question) {
   scrollToBottom();
 }
 
+// New helper function to format quiz content with code blocks
+function formatQuizContent(element, text) {
+  // Process code blocks first (surrounded by triple backticks)
+  const codeBlockRegex = /```([\s\S]*?)```/g;
+  const codeSegments = [];
+  let match;
+  let lastIndex = 0;
+  let processedText = '';
+  
+  // Extract code blocks and replace with placeholders
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    // Add text before code block
+    processedText += text.substring(lastIndex, match.index);
+    
+    // Create placeholder for code block
+    const placeholder = `__CODE_BLOCK_${codeSegments.length}__`;
+    
+    // Extract language info if available (e.g., ```python or ```javascript)
+    let codeContent = match[1].trim();
+    let language = '';
+    
+    // Check if first line contains a language specification
+    const firstLineMatch = codeContent.match(/^([a-zA-Z0-9_+-]+)\s*\n/);
+    if (firstLineMatch) {
+      language = firstLineMatch[1].toLowerCase();
+      codeContent = codeContent.substring(firstLineMatch[0].length);
+    }
+    
+    codeSegments.push({
+      code: codeContent,
+      lang: language
+    });
+    
+    processedText += placeholder;
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text after last code block
+  processedText += text.substring(lastIndex);
+  
+  // Process inline code with single backticks
+  const inlineCodeRegex = /`([^`]+)`/g;
+  let inlineMatch;
+  lastIndex = 0;
+  let finalText = '';
+  
+  while ((inlineMatch = inlineCodeRegex.exec(processedText)) !== null) {
+    finalText += processedText.substring(lastIndex, inlineMatch.index);
+    finalText += `<code>${inlineMatch[1]}</code>`;
+    lastIndex = inlineMatch.index + inlineMatch[0].length;
+  }
+  
+  // Add remaining text
+  finalText += processedText.substring(lastIndex);
+  
+  // Replace code block placeholders with actual pre elements
+  codeSegments.forEach((codeObj, index) => {
+    const placeholder = `__CODE_BLOCK_${index}__`;
+    // If language is specified, add it as a class
+    const langClass = codeObj.lang ? ` class="language-${codeObj.lang}"` : '';
+    finalText = finalText.replace(placeholder, `<pre${langClass}>${codeObj.code}</pre>`);
+  });
+  
+  // Set the HTML content
+  element.innerHTML = finalText;
+}
 async function sendMessage() {
   const userMessage = chatInput.value.trim();
   if (!userMessage) return;
